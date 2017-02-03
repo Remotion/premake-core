@@ -1,7 +1,7 @@
 --
 -- actions/vstudio/vs2017.lua
 -- Extend the existing exporters with support for Visual Studio 2017.
--- Copyright (c) 2015-2015 Jason Perkins and the Premake project
+-- Copyright (c) 2017-2017 Jason Perkins and the Premake project
 --
 
 	premake.vstudio.vc2017 = {}
@@ -30,7 +30,7 @@
 
 		-- The capabilities of this action
 
-		valid_kinds     = { "ConsoleApp", "WindowedApp", "StaticLib", "SharedLib", "Makefile", "None", "Utility" },
+		valid_kinds     = { "ConsoleApp", "WindowedApp", "StaticLib", "SharedLib", "Makefile", "None", "Utility", "Installer" },
 		valid_languages = { "C", "C++", "C#" },
 		valid_tools     = {
 			cc     = { "msc"   },
@@ -65,8 +65,8 @@
 
 		vstudio = {
 			solutionVersion = "12",
-			versionName     = "2017",
-			targetFramework = "4.5",
+			versionName     = "15",
+			targetFramework = "4.5.2",
 			toolsVersion    = "15.0",
 			filterToolsVersion = "4.0",
 			platformToolset = "v141"
