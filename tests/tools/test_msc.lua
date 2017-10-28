@@ -4,9 +4,10 @@
 -- Copyright (c) 2012-2013 Jason Perkins and the Premake project
 --
 
+	local p = premake
 	local suite = test.declare("tools_msc")
 
-	local msc = premake.tools.msc
+	local msc = p.tools.msc
 
 
 --
@@ -178,6 +179,12 @@
 		warnings "Off"
 		prepare()
 		test.contains("/W0", msc.getcflags(cfg))
+	end
+
+	function suite.cflags_OnHighWarnings()
+		warnings "High"
+		prepare()
+		test.contains("/W4", msc.getcflags(cfg))
 	end
 
 	function suite.cflags_OnExtraWarnings()
@@ -411,6 +418,12 @@
 		characterset "MBCS"
 		prepare()
 		test.contains('/D"_MBCS"', msc.getdefines(cfg.defines, cfg))
+	end
+
+	function suite.cflags_onCharSetASCII()
+		characterset "ASCII"
+		prepare()
+		test.excludes({'/D"_MBCS"', '/D"_UNICODE"'}, msc.getdefines(cfg.defines, cfg))
 	end
 
 

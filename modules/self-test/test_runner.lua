@@ -59,14 +59,16 @@
 		local passed = 0
 		local failed = 0
 
-		for testName, testFunction in pairs(test.suite) do
-			test.testName = testName
-			test.testFunction = testFunction
+		if test.suite ~= nil then
+			for testName, testFunction in pairs(test.suite) do
+				test.testName = testName
+				test.testFunction = testFunction
 
-			if m.isValid(test) and not m.isSuppressed(test.suiteName .. "." .. test.testName) then
-				local np, nf = _.runTest(test)
-				passed = passed + np
-				failed = failed + nf
+				if m.isValid(test) and not m.isSuppressed(test.suiteName .. "." .. test.testName) then
+					local np, nf = _.runTest(test)
+					passed = passed + np
+					failed = failed + nf
+				end
 			end
 		end
 
@@ -76,10 +78,14 @@
 
 
 	function _.runTest(test)
+		local cwd = os.getcwd()
 		local hooks = _.installTestingHooks()
 
 		_TESTS_DIR = test.suite._TESTS_DIR
 		_SCRIPT_DIR = test.suite._SCRIPT_DIR
+
+		m.suiteName = test.suiteName
+		m.testName = test.testName
 
 		local ok, err = _.setupTest(test)
 
@@ -92,6 +98,7 @@
 		err = err or terr
 
 		_.removeTestingHooks(hooks)
+		os.chdir(cwd)
 
 		if ok then
 			return 1, 0
@@ -108,19 +115,20 @@
 
 		hooks.action = _ACTION
 		hooks.options = _OPTIONS
-		hooks.os = _OS
+		hooks.targetOs = _TARGET_OS
 
 		hooks.io_open = io.open
 		hooks.io_output = io.output
 		hooks.os_writefile_ifnotequal = os.writefile_ifnotequal
 		hooks.p_utf8 = p.utf8
 		hooks.print = print
+		hooks.setTextColor = term.setTextColor
 
 		local mt = getmetatable(io.stderr)
 		_.builtin_write = mt.write
 		mt.write = _.stub_stderr_write
 
-		_OPTIONS = {}
+		_OPTIONS = table.shallowcopy(_OPTIONS) or {}
 		setmetatable(_OPTIONS, getmetatable(hooks.options))
 
 		io.open = _.stub_io_open
@@ -128,6 +136,7 @@
 		os.writefile_ifnotequal = _.stub_os_writefile_ifnotequal
 		print = _.stub_print
 		p.utf8 = _.stub_utf8
+		term.setTextColor = _.stub_setTextColor
 
 		stderr_capture = nil
 
@@ -149,15 +158,16 @@
 
 
 	function _.removeTestingHooks(hooks)
-		_ACTION = hooks.action
+		p.action.set(hooks.action)
 		_OPTIONS = hooks.options
-		_OS = hooks.os
+		_TARGET_OS = hooks.targetOs
 
 		io.open = hooks.io_open
 		io.output = hooks.io_output
 		os.writefile_ifnotequal = hooks.os_writefile_ifnotequal
 		p.utf8 = hooks.p_utf8
 		print = hooks.print
+		term.setTextColor = hooks.setTextColor
 
 		local mt = getmetatable(io.stderr)
 		mt.write = _.builtin_write
@@ -224,6 +234,8 @@
 		m.value_openedfilename = fname
 		m.value_openedfilemode = mode
 		return {
+			read = function()
+			end,
 			close = function()
 				m.value_closedfile = true
 			end
@@ -262,4 +274,8 @@
 
 
 	function _.stub_utf8()
+	end
+
+
+	function _.stub_setTextColor()
 	end

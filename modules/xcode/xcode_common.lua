@@ -7,9 +7,9 @@
 	local p = premake
 	local xcode = p.modules.xcode
 	local tree  = p.tree
-    local workspace = p.workspace
+	local workspace = p.workspace
 	local project = p.project
-    local config = p.config
+	local config = p.config
 	local fileconfig = p.fileconfig
 
 
@@ -287,7 +287,7 @@
 	function xcode.getxcodeprojname(prj)
 		-- if there is a workspace with matching name, then use "projectname1.xcodeproj"
 		-- just get something working for now
-		local fname = premake.filename(prj, ".xcodeproj")
+		local fname = p.filename(prj, ".xcodeproj")
 		return fname
 	end
 
@@ -336,7 +336,7 @@
 		-- create and cache a list of supported platforms
 		wks.xcode = { }
 
-		for prj in premake.workspace.eachproject(wks) do
+		for prj in p.workspace.eachproject(wks) do
 			-- need a configuration to get the target information
 			local cfg = project.getconfig(prj, prj.configurations[1], prj.platforms[1])
 
@@ -346,7 +346,7 @@
 				bundlepath = cfg.project.name
 			end
 
-			local node = premake.tree.new(path.getname(bundlepath))
+			local node = p.tree.new(path.getname(bundlepath))
 
 			node.cfg = cfg
 			node.id = xcode.newid(node.name, "product")
@@ -944,6 +944,27 @@
 		end
 		settings['PRODUCT_NAME'] = cfg.buildtarget.basename
 
+		if os.istarget(p.IOS) then
+			settings['SDKROOT'] = 'iphoneos'
+
+			settings['CODE_SIGN_IDENTITY[sdk=iphoneos*]'] = cfg.xcodecodesigningidentity or 'iPhone Developer'
+
+			local minOSVersion = project.systemversion(cfg)
+			if minOSVersion ~= nil then
+				settings['IPHONEOS_DEPLOYMENT_TARGET'] = minOSVersion
+			end
+
+			local families = {
+				['iPhone/iPod touch'] = '1',
+				['iPad'] = '2',
+				['Universal'] = '1,2',
+			}
+			local family = families[cfg.iosfamily]
+			if family then
+				settings['TARGETED_DEVICE_FAMILY'] = family
+			end
+		end
+
 		--ms not by default ...add it manually if you need it
 		--settings['COMBINE_HIDPI_IMAGES'] = 'YES'
 
@@ -956,6 +977,58 @@
 		_p(3,'};')
 		printSetting(3, 'name', cfg.buildcfg);
 		_p(2,'};')
+	end
+
+
+	xcode.cLanguageStandards = {
+		["Default"] = "compiler-default",  -- explicit compiler default
+		["C89"] = "c89",
+		["C90"] = "c90",
+		["C99"] = "c99",
+		["C11"] = "c11",
+		["gnu89"] = "gnu89",
+		["gnu90"] = "gnu90",
+		["gnu99"] = "gnu99",
+		["gnu11"] = "gnu11"
+	}
+
+	function xcode.XCBuildConfiguration_CLanguageStandard(settings, cfg)
+		-- if no cppdialect is provided, don't set C dialect
+		-- projects without C dialect set will use compiler default
+		if not cfg.cdialect then
+			return
+		end
+
+		local cLanguageStandard = xcode.cLanguageStandards[cfg.cdialect]
+		if cLanguageStandard then
+			settings['GCC_C_LANGUAGE_STANDARD'] = cLanguageStandard
+		end
+	end
+
+
+	xcode.cppLanguageStandards = {
+		["Default"] = "compiler-default",  -- explicit compiler default
+		["C++98"] = "c++98",
+		["C++11"] = "c++0x",      -- Xcode project GUI uses c++0x, but c++11 also works
+		["C++14"] = "c++14",
+		["C++17"] = "c++1z",
+		["gnu++98"] = "gnu++98",
+		["gnu++11"] = "gnu++0x",  -- Xcode project GUI uses gnu++0x, but gnu++11 also works
+		["gnu++14"] = "gnu++14",
+		["gnu++17"] = "gnu++1z"
+	}
+
+	function xcode.XCBuildConfiguration_CppLanguageStandard(settings, cfg)
+		-- if no cppdialect is provided, don't set C++ dialect
+		-- projects without C++ dialect set will use compiler default
+		if not cfg.cppdialect then
+			return
+		end
+
+		local cppLanguageStandard = xcode.cppLanguageStandards[cfg.cppdialect]
+		if cppLanguageStandard then
+			settings['CLANG_CXX_LANGUAGE_STANDARD'] = cppLanguageStandard
+		end
 	end
 
 
@@ -987,13 +1060,8 @@
 			settings['COPY_PHASE_STRIP'] = 'NO'
 		end
 
-		settings['GCC_C_LANGUAGE_STANDARD'] = 'gnu99'
-
-		if cfg.flags['C++14'] then
-			settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++14'
-		elseif cfg.flags['C++11'] then
-			settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++0x'
-		end
+		xcode.XCBuildConfiguration_CLanguageStandard(settings, cfg)
+		xcode.XCBuildConfiguration_CppLanguageStandard(settings, cfg)
 
 		if cfg.exceptionhandling == p.OFF then
 			settings['GCC_ENABLE_CPP_EXCEPTIONS'] = 'NO'
@@ -1003,7 +1071,7 @@
 			settings['GCC_ENABLE_CPP_RTTI'] = 'NO'
 		end
 
-		if cfg.symbols == p.ON and not cfg.flags.NoEditAndContinue then
+		if cfg.symbols == p.ON and cfg.editandcontinue ~= "Off" then
 			settings['GCC_ENABLE_FIX_AND_CONTINUE'] = 'YES'
 		end
 
@@ -1036,13 +1104,13 @@
 
 		local includedirs = project.getrelative(cfg.project, cfg.includedirs)
 		for i,v in ipairs(includedirs) do
-			cfg.includedirs[i] = premake.quoted(v)
+			cfg.includedirs[i] = p.quoted(v)
 		end
 		settings['USER_HEADER_SEARCH_PATHS'] = cfg.includedirs
 
 		local sysincludedirs = project.getrelative(cfg.project, cfg.sysincludedirs)
 		for i,v in ipairs(sysincludedirs) do
-			cfg.sysincludedirs[i] = premake.quoted(v)
+			cfg.sysincludedirs[i] = p.quoted(v)
 		end
 		if not table.isempty(cfg.sysincludedirs) then
 			table.insert(cfg.sysincludedirs, "$(inherited)")
@@ -1050,24 +1118,24 @@
 		settings['HEADER_SEARCH_PATHS'] = cfg.sysincludedirs
 
 		for i,v in ipairs(cfg.libdirs) do
-			cfg.libdirs[i] = premake.project.getrelative(cfg.project, cfg.libdirs[i])
+			cfg.libdirs[i] = p.project.getrelative(cfg.project, cfg.libdirs[i])
 		end
 		settings['LIBRARY_SEARCH_PATHS'] = cfg.libdirs
 
 		for i,v in ipairs(cfg.frameworkdirs) do
-			cfg.frameworkdirs[i] = premake.project.getrelative(cfg.project, cfg.frameworkdirs[i])
+			cfg.frameworkdirs[i] = p.project.getrelative(cfg.project, cfg.frameworkdirs[i])
 		end
 		settings['FRAMEWORK_SEARCH_PATHS'] = cfg.frameworkdirs
 
 		local objDir = path.getrelative(tr.project.location, cfg.objdir)
 		settings['OBJROOT'] = objDir
 
-		settings['ONLY_ACTIVE_ARCH'] = iif(premake.config.isDebugBuild(cfg), 'YES', 'NO')
+		settings['ONLY_ACTIVE_ARCH'] = iif(p.config.isDebugBuild(cfg), 'YES', 'NO')
 
 		-- build list of "other" C/C++ flags
 		local checks = {
-			["-ffast-math"]          = cfg.flags.FloatFast,
-			["-ffloat-store"]        = cfg.flags.FloatStrict,
+			["-ffast-math"]          = cfg.floatingpoint == "Fast",
+			["-ffloat-store"]        = cfg.floatingpoint == "Strict",
 			["-fomit-frame-pointer"] = cfg.flags.NoFramePointer,
 		}
 
