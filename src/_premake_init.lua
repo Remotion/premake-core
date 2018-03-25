@@ -122,7 +122,7 @@
 		scope = { "config", "rule" },
 		kind = "list:path",
 		tokens = true,
-		pathVars = true,
+		pathVars = false,
 	}
 
 	api.register {
@@ -130,7 +130,7 @@
 		scope = "config",
 		kind = "list:path",
 		tokens = true,
-		pathVars = true,
+		pathVars = false,
 	}
 
 	api.register {
@@ -390,6 +390,18 @@
 	}
 
 	api.register {
+		name = "dpiawareness",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"None",
+			"High",
+			"HighPerMonitor",
+		}
+	}
+
+	api.register {
 		name = "editandcontinue",
 		scope = "config",
 		kind = "string",
@@ -513,7 +525,7 @@
 			"RelativeLinks",
 			"ReleaseRuntime",      -- DEPRECATED
 			"ShadowedVariables",
-			"StaticRuntime",
+			"StaticRuntime",       -- DEPRECATED
 			"Symbols",             -- DEPRECATED
 			"UndefinedIdentifiers",
 			"WinMain",             -- DEPRECATED
@@ -754,12 +766,18 @@
 		allowed = {
 			"Default",
 			"C++98",
+			"C++0x",
 			"C++11",
+			"C++1y",
 			"C++14",
+			"C++1z",
 			"C++17",
 			"gnu++98",
+			"gnu++0x",
 			"gnu++11",
+			"gnu++1y",
 			"gnu++14",
+			"gnu++1z",
 			"gnu++17",
 		}
 	}
@@ -1049,6 +1067,17 @@
 	}
 
 	api.register {
+		name = "staticruntime",
+		scope = "config",
+		kind = "string",
+		allowed = {
+			"Default",
+			"On",
+			"Off"
+		}
+	}
+
+	api.register {
 		name = "strictaliasing",
 		scope = "config",
 		kind = "string",
@@ -1242,6 +1271,25 @@
 			"SSE3",
 			"SSSE3",
 			"SSE4.1",
+		}
+	}
+
+	api.register {
+		name = "isaextensions",
+		scope = "config",
+		kind = "list:string",
+		allowed = {
+			"MOVBE",
+			"POPCNT",
+			"PCLMUL",
+			"LZCNT",
+			"BMI",
+			"BMI2",
+			"F16C",
+			"AES",
+			"FMA",
+			"FMA4",
+			"RDRND",
 		}
 	}
 
@@ -1519,6 +1567,16 @@
 		entrypoint "mainCRTStartup"
 	end)
 
+	-- 31 October 2017
+
+	api.deprecateValue("flags", "StaticRuntime", 'Use `staticruntime "On"` instead',
+	function(value)
+		staticruntime "On"
+	end,
+	function(value)
+		staticruntime "Default"
+	end)
+
 -----------------------------------------------------------------------------
 --
 -- Install Premake's default set of command line arguments.
@@ -1654,6 +1712,9 @@
 		targetextension ".a"
 
 	-- Add variations for other Posix-like systems.
+
+	filter { "system:MacOSX", "kind:WindowedApp" }
+		targetextension ".app"
 
 	filter { "system:MacOSX", "kind:SharedLib" }
 		targetextension ".dylib"
